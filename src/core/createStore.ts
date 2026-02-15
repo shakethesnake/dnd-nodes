@@ -1,7 +1,10 @@
 // core/createStore.ts
-export function createStore<T extends object>(initialState: T) {
+import type { Store } from "../types";
+
+export function createStore<T extends object>(initialState: T): Store<T> {
   let state = initialState;
   const listeners = new Set<() => void>();
+  let batchDepth = 0;
 
   function getState(): T {
     return state;
@@ -19,6 +22,9 @@ export function createStore<T extends object>(initialState: T) {
         ? { ...(state as object), ...(nextPartial as object) } as T
         : (nextPartial as T);
 
+    // Don't notify if we're batching
+    if (batchDepth > 0) return;
+
     listeners.forEach((fn) => fn());
   }
 
@@ -31,5 +37,17 @@ export function createStore<T extends object>(initialState: T) {
     return state;
   }
 
-  return { getState, setState, subscribe, getSnapshot };
+  function batch<R>(fn: () => R): R {
+    batchDepth++;
+    try {
+      return fn();
+    } finally {
+      batchDepth--;
+      if (batchDepth === 0) {
+        listeners.forEach((fn) => fn());
+      }
+    }
+  }
+
+  return { getState, setState, subscribe, getSnapshot, batch };
 }

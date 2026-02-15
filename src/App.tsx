@@ -2,6 +2,7 @@ import './App.css'
 import { Flow } from './components/Flow'
 import { Graph } from './core/Graph';
 import type { NodeData, EdgeData } from './types/types';
+// import { AdvancedDamagePipelineExample } from "./examples/example1/AdvancedDamagePipelineExample";
 
 /**
  * Example demonstrating custom nodes and edges in FlowForge
@@ -62,7 +63,7 @@ function generateRandomGraph(numNodes: number): { nodes: Node[]; edges: Edge[] }
     return { nodes, edges };
 }
 
-function createExampleGraph(): { nodes: NodeData[]; edges: EdgeData[] } {
+export function createExampleGraph(): { nodes: NodeData[]; edges: EdgeData[] } {
     // Create a mix of default and custom nodes
     const nodes: NodeData[] = [
         // Custom nodes with different colors and icons
@@ -316,8 +317,8 @@ function createExampleGraph(): { nodes: NodeData[]; edges: EdgeData[] } {
  */
 export function App() {
     // Use the example graph with custom nodes and edges
-    const { nodes, edges } = createExampleGraph();
-    // const { nodes, edges } = generateRandomGraph(2   5);
+    // const { nodes, edges } = createExampleGraph();
+    const { nodes, edges } = generateRandomGraph(25);
 
     const graph = new Graph({
         nodes,
@@ -327,7 +328,9 @@ export function App() {
 
     return (
         <>
+            {/* Switch between examples: */}
             <Flow graph={graph} />
+            {/* <AdvancedDamagePipelineExample /> */}
         </>
     )
 }

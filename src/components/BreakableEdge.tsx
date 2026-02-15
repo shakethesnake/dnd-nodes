@@ -51,7 +51,7 @@ export const BreakableEdge: React.FC<BreakableEdgeProps> = (edge) => {
         <g
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            // onClick={handleClick}
+            onClick={handleClick}
             style={{ cursor: 'pointer' }}
         >
             {/* Invisible thick path for easier clicking */}

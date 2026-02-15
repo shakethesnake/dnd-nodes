@@ -1,0 +1,79 @@
+/* Example 2: Conditional Connection Styles */
+
+/* Keyframe for animated edges */
+@keyframes dash {
+    from {
+        stroke-dashoffset: 0;
+    }
+    to {
+        stroke-dashoffset: -15;
+    }
+}
+
+/* Info Panel */
+.info-panel {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: rgba(10, 14, 26, 0.95);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    max-width: 380px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(96, 165, 250, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Log Panel */
+.log-panel {
+    width: 320px;
+    background: #0a0e1a;
+    border-left: 1px solid rgba(96, 165, 250, 0.2);
+    color: #e2e8f0;
+    padding: 20px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+}
+
+/* Log Entry */
+.log-entry {
+    padding: 8px 12px;
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    border-left: 2px solid rgba(96, 165, 250, 0.3);
+    transition: all 0.2s ease;
+}
+
+.log-entry:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-left-color: rgba(96, 165, 250, 0.6);
+}
+
+/* Scrollbar Styling for Log Panel */
+.log-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-panel::-webkit-scrollbar-track {
+    background: rgba(30, 41, 59, 0.3);
+    border-radius: 4px;
+}
+
+.log-panel::-webkit-scrollbar-thumb {
+    background: rgba(96, 165, 250, 0.3);
+    border-radius: 4px;
+}
+
+.log-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(96, 165, 250, 0.5);
+}
+
+/* Animated Edge Animation */
+.animated-edge {
+    animation: dash 2s linear infinite;
+}
