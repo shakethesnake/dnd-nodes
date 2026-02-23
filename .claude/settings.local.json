@@ -13,7 +13,9 @@
       "Bash(npm run build:types:*)",
       "Bash(dir:*)",
       "Bash(npm run dev:*)",
-      "Bash(timeout 3 tail:*)"
+      "Bash(timeout 3 tail:*)",
+      "Bash(\"d:\\\\Git\\\\flowforge-react\\\\src\\\\App.css\":*)",
+      "Bash(npx vitest:*)"
     ],
     "deny": [],
     "ask": []

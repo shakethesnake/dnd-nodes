@@ -4,6 +4,8 @@ import { createStore } from "./createStore";
 import { makePath } from "./LiveEdge";
 import { serializeGraph, deserializeGraph, validateGraph } from "./Serialization";
 import { History, type HistoryConfig } from "./History";
+import { EdgePathRegistry } from "./EdgePathRegistry";
+import { RouteCache } from "./RouteCache";
 
 type LayerName = "edgeLayer" | "nodeLayer" | string;
 
@@ -27,10 +29,20 @@ export class Graph {
     private edgeRouter: EdgeRouter = (source, target) => makePath(source, target);
     private snapToGrid = false;
     private gridSize = 20;
+    private viewportTransform = { x: 0, y: 0, zoom: 1 };
 
     // регистры DOM-узлов (div.node) и edge-элементов (SVGPathElement)
     nodeRegistry = new Map<string, HTMLElement>();
     edgeRegistry = new Map<string, SVGPathElement>();
+
+    // P2: Централизованный реестр path-элементов (вместо querySelectorAll)
+    readonly pathRegistry = new EdgePathRegistry();
+
+    // P3: LRU-кеш вычисленных SVG path-строк
+    readonly routeCache = new RouteCache({ maxSize: 2000, precision: 0.5 });
+
+    // P1: Предыдущий набор edgeId — для отслеживания структурных изменений
+    private _prevEdgeIds: string[] = [];
 
     // слои и корневой контейнер Canvas
     private layers = new Map<LayerName, Element>();
@@ -49,6 +61,8 @@ export class Graph {
                 draggingId: null,
                 selectedNodeId: null,
                 selectedNodeIds: [],
+                selectedEdgeId: null,
+                selectedEdgeIds: [],
                 canvasView: 'grid',
             });
             this.store.setState(config as Partial<GraphState>);
@@ -73,6 +87,8 @@ export class Graph {
                     draggingId: null,
                     selectedNodeId: null,
                     selectedNodeIds: [],
+                    selectedEdgeId: null,
+                    selectedEdgeIds: [],
                     canvasView: 'grid',
                 });
                 this.isControlled = false;
@@ -131,9 +147,9 @@ export class Graph {
     addLayer = (name: LayerName, layer: Element | null) => {
         if (!layer) return;
         this.layers.set(name, layer);
-        if (!this.rootEl && layer instanceof HTMLElement) {
-            // пытаемся найти общий root (родитель SVG/Canvas контейнера)
-            this.rootEl = layer.closest<HTMLElement>("[data-flow-root]") || layer.parentElement as HTMLElement;
+        if (!this.rootEl) {
+            const flowRoot = layer.closest<HTMLElement>("[data-flow-root]");
+            this.rootEl = flowRoot || layer.parentElement;
         }
     };
     getLayer = (name: LayerName) => this.layers.get(name);
@@ -164,12 +180,22 @@ export class Graph {
     };
 
     /**
-     * Returns the center coordinates of a specific port in screen space
+     * Set the current viewport transform for coordinate conversion
+     * This is needed to correctly convert screen coordinates to canvas coordinates
+     * when zoom/pan is applied
+     */
+    setViewportTransform = (x: number, y: number, zoom: number) => {
+        this.viewportTransform = { x, y, zoom };
+    };
+
+    /**
+     * Returns the center coordinates of a specific port in canvas space
      * @param nodeId - ID of the node containing the port
      * @param portId - ID of the specific port (defaults to "out"/"in")
      * @param portType - Type of port ("input" or "output")
+     * @returns Port position in canvas coordinates (accounts for zoom/pan transform)
      */
-    private getNodePortScreen(nodeId: string, portId: string = 'out', portType: 'input' | 'output' = 'output'): Vec2 | null {
+    private getNodePortCanvas(nodeId: string, portId: string = 'out', portType: 'input' | 'output' = 'output'): Vec2 | null {
         const nodeEl = this.nodeRegistry.get(nodeId);
         if (!nodeEl) return null;
 
@@ -184,22 +210,24 @@ export class Graph {
 
         if (!portEl) return null;
 
+        // Get screen position and convert to canvas coordinates
         const rect = portEl.getBoundingClientRect();
-        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        const screenPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        return this.toCanvasSpace(screenPos);
     }
 
     /**
-     * Legacy method: Returns center of default input/output ports in screen space
-     * @deprecated Use getNodePortScreen() for multi-port support
+     * Legacy method: Returns center of default input/output ports in canvas space
+     * @deprecated Use getNodePortCanvas() for multi-port support
      */
-    private getNodePortsScreen(nodeId: string) {
+    private getNodePortsCanvas(nodeId: string) {
         return {
-            outputPort: this.getNodePortScreen(nodeId, 'out', 'output'),
-            inputPort: this.getNodePortScreen(nodeId, 'in', 'input'),
+            outputPort: this.getNodePortCanvas(nodeId, 'out', 'output'),
+            inputPort: this.getNodePortCanvas(nodeId, 'in', 'input'),
         };
     }
 
-    /** Для edgeId находит текущие координаты портов-узлов */
+    /** Для edgeId находит текущие координаты портов-узлов в canvas space */
     getRelatedEdgePorts = (edgeId: string) => {
         const edge = this.getState().edges.find(e => e.id === edgeId);
         if (!edge) return null;
@@ -208,59 +236,140 @@ export class Graph {
         const targetPortId = edge.targetPortId || 'in';
 
         const sourceOutputPort =
-            this.getNodePortScreen(edge.sourceNode, sourcePortId, 'output')
-            || this.getNodePortScreen(edge.sourceNode, 'out', 'output');
+            this.getNodePortCanvas(edge.sourceNode, sourcePortId, 'output')
+            || this.getNodePortCanvas(edge.sourceNode, 'out', 'output');
 
         const targetInputPort =
-            this.getNodePortScreen(edge.targetNode, targetPortId, 'input')
-            || this.getNodePortScreen(edge.targetNode, 'in', 'input');
+            this.getNodePortCanvas(edge.targetNode, targetPortId, 'input')
+            || this.getNodePortCanvas(edge.targetNode, 'in', 'input');
 
         return {
             sourceNodePort: {
-                ...this.getNodePortsScreen(edge.sourceNode),
+                ...this.getNodePortsCanvas(edge.sourceNode),
                 outputPort: sourceOutputPort,
             },
             targetNodePort: {
-                ...this.getNodePortsScreen(edge.targetNode),
+                ...this.getNodePortsCanvas(edge.targetNode),
                 inputPort: targetInputPort,
             },
         };
     };
 
-    /** Throttled batch update of edge paths when a node moves */
+    /**
+     * P1+P2+P3: Оптимизированное обновление edge paths при drag ноды.
+     *
+     * P1 (Incremental): Обновляет только edges, связанные с данной нодой
+     *     через индекс nodeId→edgeIds (вместо фильтрации всего массива edges).
+     * P2 (Registry): Получает SVGPathElement из pathRegistry за O(1)
+     *     (вместо querySelectorAll на каждый edge).
+     * P3 (Cache): Проверяет routeCache перед вызовом router.
+     *     При snap-to-grid или стационарном конце edge → cache hit.
+     */
     updateEdgesForNode = (nodeId: string) => {
         if (this.frameId) cancelAnimationFrame(this.frameId);
         this.frameId = requestAnimationFrame(() => {
             const { edges } = this.getState();
-            const related = edges.filter(e => e.sourceNode === nodeId || e.targetNode === nodeId);
 
-            const svg = this.getLayer("edgeLayer") as SVGSVGElement;
-            if (!svg) return;
+            // P1: Получаем только edgeId, связанные с этой нодой, через индекс
+            const dirtyEdgeIds = this.pathRegistry.getEdgeIdsForNode(nodeId);
+            if (dirtyEdgeIds.size === 0) {
+                // Fallback: если индекс ещё не построен, фильтруем вручную
+                const related = edges.filter(e => e.sourceNode === nodeId || e.targetNode === nodeId);
+                for (const e of related) {
+                    this._updateSingleEdge(e);
+                }
+                return;
+            }
 
-            for (const e of related) {
-                // Use portId from edge data with fallback to default ports
-                const sourcePortId = e.sourcePortId || 'out';
-                const targetPortId = e.targetPortId || 'in';
-
-                const s = this.getNodePortScreen(e.sourceNode, sourcePortId, 'output');
-                const t = this.getNodePortScreen(e.targetNode, targetPortId, 'input');
-
-                if (!s || !t) continue;
-
-                // Update ALL path elements for this edge (edges can have multiple paths)
-                const pathEls = svg.querySelectorAll<SVGPathElement>(`path[data-edge-id="${e.id}"]`);
-                pathEls.forEach((pathEl) => {
-                    pathEl.setAttribute("d", this.edgeRouter(s, t, e as EdgeData));
-                });
+            // Обновляем только грязные edges
+            for (const edgeId of dirtyEdgeIds) {
+                const edge = edges.find(e => e.id === edgeId);
+                if (!edge) continue;
+                this._updateSingleEdge(edge);
             }
         });
     };
 
-    /** Утилита: преобразует экранные координаты в координаты Canvas (относительные) */
+    /**
+     * Обновляет path-атрибуты для одного edge.
+     * Использует pathRegistry (P2) и routeCache (P3).
+     */
+    private _updateSingleEdge(e: EdgeData): void {
+        const sourcePortId = e.sourcePortId || 'out';
+        const targetPortId = e.targetPortId || 'in';
+
+        const s = this.getNodePortCanvas(e.sourceNode, sourcePortId, 'output');
+        const t = this.getNodePortCanvas(e.targetNode, targetPortId, 'input');
+        if (!s || !t) return;
+
+        // P3: Пробуем получить path из кеша
+        let pathStr = this.routeCache.get(s, t, e as EdgeData);
+        if (pathStr === undefined) {
+            // Cache miss — вычисляем и сохраняем
+            pathStr = this.edgeRouter(s, t, e as EdgeData);
+            this.routeCache.set(s, t, pathStr, e as EdgeData);
+        }
+
+        // P2: Получаем path-элементы из реестра (O(1))
+        const pathEls = this.pathRegistry.getPathElements(e.id);
+        if (pathEls.length > 0) {
+            for (const pathEl of pathEls) {
+                pathEl.setAttribute("d", pathStr);
+            }
+        } else {
+            // Fallback: querySelectorAll (для случая когда реестр ещё не заполнен)
+            const svg = this.getLayer("edgeLayer") as SVGSVGElement;
+            if (!svg) return;
+            const fallbackEls = svg.querySelectorAll<SVGPathElement>(`path[data-edge-id="${e.id}"]`);
+            fallbackEls.forEach((pathEl) => {
+                pathEl.setAttribute("d", pathStr!);
+            });
+        }
+    }
+
+    /**
+     * P1: Обновляет nodeToEdge индекс при структурных изменениях.
+     * Вызывается из EdgeLayer при изменении массива edges.
+     */
+    rebuildEdgeIndex = () => {
+        const { edges } = this.getState();
+        const currentIds = edges.map(e => e.id);
+
+        // Пропускаем если структура не изменилась
+        if (currentIds.length === this._prevEdgeIds.length &&
+            currentIds.every((id, i) => id === this._prevEdgeIds[i])) {
+            return;
+        }
+
+        this._prevEdgeIds = currentIds;
+        this.pathRegistry.rebuildNodeIndex(edges);
+        // P3: Инвалидируем кеш при структурных изменениях
+        this.routeCache.clear();
+    };
+
+    /**
+     * Convert screen coordinates to canvas coordinates
+     * Accounts for container offset AND viewport transform (zoom/pan)
+     *
+     * Math explanation for transform: translate(-x, -y) scale(zoom)
+     * CSS transforms are applied right-to-left: first scale, then translate
+     * - A canvas point (cx, cy) transforms to screen: (cx * zoom - x, cy * zoom - y)
+     * - To invert: given screen position (sx, sy), canvas is: ((sx + x) / zoom, (sy + y) / zoom)
+     */
     toCanvasSpace = (p: Vec2): Vec2 => {
         if (!this.rootEl) return p;
         const r = this.rootEl.getBoundingClientRect();
-        return { x: p.x - r.left, y: p.y - r.top };
+
+        // Convert to container-relative coordinates
+        const relX = p.x - r.left;
+        const relY = p.y - r.top;
+
+        // Apply inverse transform to get canvas coordinates
+        const { x, y, zoom } = this.viewportTransform;
+        return {
+            x: (relX + x) / zoom,
+            y: (relY + y) / zoom,
+        };
     };
 
     /** === History API (Undo/Redo) === */
@@ -393,3 +502,4 @@ export class Graph {
         return validateGraph(json);
     }
 }
+

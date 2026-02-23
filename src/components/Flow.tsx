@@ -4,6 +4,7 @@ import { ZoomProvider } from "../providers/ZoomProvider";
 import { FlowProvider } from "../providers/FlowProvider";
 import { RegistryProvider } from "../providers/RegistryProvider";
 import { ConnectionProvider } from "../providers/ConnectionProvider";
+import { ContextMenuProvider } from "../providers/ContextMenuProvider";
 import { FlowCanvas } from "../components/Canvas";
 import { GraphContext } from "../providers/GraphProvider";
 import { Graph } from "../core/Graph";
@@ -42,6 +43,11 @@ const UncontrolledFlow: React.FC<UncontrolledFlowProps> = ({
     enableHotkeys,
     snapToGrid,
     gridSize,
+    showGrid,
+    enableSpatialOptimization,
+    enablePan,
+    edgeCulling,
+    edgeCullingPadding,
 }) => {
     if (!graph) throw new Error("UncontrolledFlow requires a graph instance");
     useHotkeys(graph, { enabled: enableHotkeys ?? true });
@@ -54,15 +60,23 @@ const UncontrolledFlow: React.FC<UncontrolledFlowProps> = ({
             <RegistryProvider nodeTypes={nodeTypes} edgeTypes={edgeTypes}>
                 <ZoomProvider>
                     <ConnectionProvider canConnect={canConnect} eventHandlers={connectionEventHandlers}>
-                        <FlowProvider>
-                            <FlowCanvas
-                                viewportCulling={viewportCulling}
-                                cullingPadding={cullingPadding}
-                                estimatedNodeSize={estimatedNodeSize}
-                                edgeRouter={edgeRouter}
-                                edgeLayerType={edgeLayerType}
-                            />
-                        </FlowProvider>
+                        <ContextMenuProvider>
+                            <FlowProvider>
+                                <FlowCanvas
+                                    viewportCulling={viewportCulling}
+                                    cullingPadding={cullingPadding}
+                                    estimatedNodeSize={estimatedNodeSize}
+                                    edgeRouter={edgeRouter}
+                                    edgeLayerType={edgeLayerType}
+                                    showGrid={showGrid}
+                                    gridSize={gridSize}
+                                    enableSpatialOptimization={enableSpatialOptimization}
+                                    enablePan={enablePan}
+                                    edgeCulling={edgeCulling}
+                                    edgeCullingPadding={edgeCullingPadding}
+                                />
+                            </FlowProvider>
+                        </ContextMenuProvider>
                     </ConnectionProvider>
                 </ZoomProvider>
             </RegistryProvider>
@@ -93,6 +107,11 @@ const ControlledFlow: React.FC<ControlledFlowProps> = ({
     enableHotkeys,
     snapToGrid,
     gridSize,
+    showGrid,
+    enableSpatialOptimization,
+    enablePan,
+    edgeCulling,
+    edgeCullingPadding,
 }) => {
     const callbacksRef = useRef({ onNodesChange, onEdgesChange, onStateChange });
     const syncingFromPropsRef = useRef(false);
@@ -109,6 +128,8 @@ const ControlledFlow: React.FC<ControlledFlowProps> = ({
             draggingId: null,
             selectedNodeId: null,
             selectedNodeIds: [],
+            selectedEdgeId: null,
+            selectedEdgeIds: [],
             canvasView: 'grid',
         });
 
@@ -154,6 +175,12 @@ const ControlledFlow: React.FC<ControlledFlowProps> = ({
                 if (nextState.selectedNodeIds !== prevState.selectedNodeIds) {
                     changes.selectedNodeIds = nextState.selectedNodeIds;
                 }
+                if (nextState.selectedEdgeId !== prevState.selectedEdgeId) {
+                    changes.selectedEdgeId = nextState.selectedEdgeId;
+                }
+                if (nextState.selectedEdgeIds !== prevState.selectedEdgeIds) {
+                    changes.selectedEdgeIds = nextState.selectedEdgeIds;
+                }
                 if (nextState.canvasView !== prevState.canvasView) {
                     changes.canvasView = nextState.canvasView;
                 }
@@ -196,15 +223,23 @@ const ControlledFlow: React.FC<ControlledFlowProps> = ({
             <RegistryProvider nodeTypes={nodeTypes} edgeTypes={edgeTypes}>
                 <ZoomProvider>
                     <ConnectionProvider canConnect={canConnect} eventHandlers={connectionEventHandlers}>
-                        <FlowProvider>
-                            <FlowCanvas
-                                viewportCulling={viewportCulling}
-                                cullingPadding={cullingPadding}
-                                estimatedNodeSize={estimatedNodeSize}
-                                edgeRouter={edgeRouter}
-                                edgeLayerType={edgeLayerType}
-                            />
-                        </FlowProvider>
+                        <ContextMenuProvider>
+                            <FlowProvider>
+                                <FlowCanvas
+                                    viewportCulling={viewportCulling}
+                                    cullingPadding={cullingPadding}
+                                    estimatedNodeSize={estimatedNodeSize}
+                                    edgeRouter={edgeRouter}
+                                    edgeLayerType={edgeLayerType}
+                                    showGrid={showGrid}
+                                    gridSize={gridSize}
+                                    enableSpatialOptimization={enableSpatialOptimization}
+                                    enablePan={enablePan}
+                                    edgeCulling={edgeCulling}
+                                    edgeCullingPadding={edgeCullingPadding}
+                                />
+                            </FlowProvider>
+                        </ContextMenuProvider>
                     </ConnectionProvider>
                 </ZoomProvider>
             </RegistryProvider>

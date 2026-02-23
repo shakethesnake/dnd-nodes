@@ -8,3 +8,5 @@ export { useNode } from './useNode';
 export { useEdgesForNode } from './useEdgesForNode';
 export { useSelection } from './useSelection';
 export { useConnectionPreview } from './useConnectionPreview';
+export { useFlowIO } from './useFlowIO';
+export type { FlowIOActions } from './useFlowIO';

@@ -1,7 +1,8 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useContext } from "react";
 import { createLiveEdge, updateLiveEdge, removeLiveEdge } from "../core/LiveEdge";
 import { useGraph } from "../hooks/useGraph";
 import { useConnection } from "../providers/ConnectionProvider";
+import { ZoomContext } from "../providers/ZoomProvider";
 
 interface PortProps {
     type?: 'input' | 'output';
@@ -14,6 +15,7 @@ interface PortProps {
 
 export const Port: React.FC<PortProps> = (props) => {
     const graph = useGraph();
+    const { isPanModeRef } = useContext(ZoomContext);
 
     // Optional: use ConnectionProvider if available for validation and events
     let connection: ReturnType<typeof useConnection> | null = null;
@@ -38,27 +40,34 @@ export const Port: React.FC<PortProps> = (props) => {
 
     /** === PORT CONNECTION LOGIC === */
     const handlePortPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        // Don't start connection in pan mode — let the event bubble to the canvas
+        if (isPanModeRef.current) return;
         e.stopPropagation();
         const portEl = e.currentTarget;
         const rect = portEl.getBoundingClientRect();
-        const start = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+        const startScreen = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+
+        // Convert screen coordinates to canvas coordinates for live edge rendering
+        const startCanvas = graph.toCanvasSpace(startScreen);
+
         const edgeLayer = graph.getLayer("edgeLayer");
         if (!(edgeLayer instanceof SVGSVGElement)) return;
-        createLiveEdge(edgeLayer, start);
+        createLiveEdge(edgeLayer, startCanvas);
 
-        // Notify ConnectionProvider if available
+        // Notify ConnectionProvider if available (use screen coords for UI events)
         connection?.startConnection({
             sourceNodeId: nodeId,
             sourcePortId: effectivePortId,
             sourcePortType: type,
-            sourcePosition: start,
-            currentPosition: start,
+            sourcePosition: startScreen,
+            currentPosition: startScreen,
         });
 
         const handleMove = (ev: PointerEvent) => {
-            const currentPos = { x: ev.clientX, y: ev.clientY };
-            updateLiveEdge(start, currentPos);
-            connection?.updateConnection(currentPos);
+            const currentPosScreen = { x: ev.clientX, y: ev.clientY };
+            const currentPosCanvas = graph.toCanvasSpace(currentPosScreen);
+            updateLiveEdge(startCanvas, currentPosCanvas);
+            connection?.updateConnection(currentPosScreen);
         };
 
         const handleUp = (ev: PointerEvent) => {
@@ -100,7 +109,7 @@ export const Port: React.FC<PortProps> = (props) => {
                     sourcePortId: effectivePortId,
                     targetNode: targetNodeId,
                     targetPortId: targetPortId || undefined,
-                    sourcePort: graph.toCanvasSpace(start),
+                    sourcePort: startCanvas,
                     targetPort: graph.toCanvasSpace(targetPort),
                 };
 
@@ -131,7 +140,7 @@ export const Port: React.FC<PortProps> = (props) => {
 
         window.addEventListener("pointermove", handleMove);
         window.addEventListener("pointerup", handleUp);
-    }, [graph, nodeId, effectivePortId, type, connection]);
+    }, [graph, nodeId, effectivePortId, type, connection, isPanModeRef]);
 
     return (
         <div

@@ -8,7 +8,7 @@ export { NodeShell } from './NodeShell';
 export { Edge } from './Edge';
 export { AnimatedEdge } from './AnimatedEdge';
 export { BreakableEdge } from './BreakableEdge';
-export { EdgesLayer } from './EdgeLayer';
+export { EdgesLayer, EdgeLODContext, type EdgeLOD } from './EdgeLayer';
 export { Port } from './Port';
 
 // Re-export types

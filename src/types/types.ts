@@ -61,6 +61,56 @@ export interface EdgeData<T = Record<string, unknown>> {
 }
 
 /**
+ * Viewport state for zoom and pan
+ */
+export interface ViewportState {
+  /** Pan offset X in screen pixels for transform: translate(-x, -y) scale(zoom) */
+  x: number;
+  /** Pan offset Y in screen pixels for transform: translate(-x, -y) scale(zoom) */
+  y: number;
+  /** Zoom level (0.1 to 3.0) */
+  zoom: number;
+}
+
+/**
+ * Zoom configuration options
+ */
+export interface ZoomConfig {
+  /** Minimum zoom level (default: 0.1) */
+  minZoom?: number;
+  /** Maximum zoom level (default: 3.0) */
+  maxZoom?: number;
+  /** Mouse wheel sensitivity (default: 0.001) */
+  wheelSensitivity?: number;
+  /** Zoom step for zoom in/out buttons (default: 0.2) */
+  zoomStep?: number;
+}
+
+/**
+ * Viewport actions for controlling zoom and pan
+ */
+export interface ViewportActions {
+  /** Set zoom level to a specific value */
+  setZoom: (zoom: number) => void;
+  /** Zoom in by a delta amount */
+  zoomIn: (delta?: number) => void;
+  /** Zoom out by a delta amount */
+  zoomOut: (delta?: number) => void;
+  /** Zoom to fit all nodes in view */
+  zoomToFit: (nodes: NodeData[]) => void;
+  /** Pan by delta values */
+  pan: (dx: number, dy: number) => void;
+  /** Pan to specific coordinates */
+  panTo: (x: number, y: number) => void;
+  /** Reset view to default (zoom 1, position 0,0) */
+  resetView: () => void;
+  /** Get CSS transform string for current viewport */
+  getTransform: () => string;
+  /** Zoom to a specific point (used for wheel zoom) */
+  zoomToPoint: (clientX: number, clientY: number, delta: number) => void;
+}
+
+/**
  * Complete graph state containing all nodes, edges, and UI state
  */
 export interface GraphState {
@@ -74,8 +124,14 @@ export interface GraphState {
   selectedNodeId?: string | null;
   /** IDs of currently selected nodes (v1 selection model) */
   selectedNodeIds?: string[];
+  /** ID of the currently selected edge, or null */
+  selectedEdgeId?: string | null;
+  /** IDs of currently selected edges (multi-selection) */
+  selectedEdgeIds?: string[];
   /** Current canvas background display mode */
   canvasView?: CanvasView;
+  /** Viewport state for zoom and pan */
+  viewport?: ViewportState;
 }
 
 /** Event handler for node interactions */
@@ -236,6 +292,10 @@ export interface SerializedGraph {
   nodes: NodeData[];
   /** All edges connecting nodes */
   edges: EdgeData[];
+  /** Viewport state (zoom and pan) at time of export */
+  viewport?: ViewportState;
+  /** Canvas background display mode at time of export */
+  canvasView?: CanvasView;
   /** Optional metadata (author, description, timestamps, etc.) */
   metadata?: Record<string, unknown>;
 }
@@ -302,6 +362,16 @@ export interface ControlledFlowProps {
   snapToGrid?: boolean;
   /** Grid size in pixels for snap-to-grid */
   gridSize?: number;
+  /** Show infinite grid background (default: true) */
+  showGrid?: boolean;
+  /** Enable spatial optimization for large graphs (>500 nodes) */
+  enableSpatialOptimization?: boolean;
+  /** Enable Space+drag and middle-mouse canvas panning (default: true) */
+  enablePan?: boolean;
+  /** P5: Enable edge visibility culling for large graphs */
+  edgeCulling?: boolean;
+  /** P5: Extra padding around viewport for edge culling (px) */
+  edgeCullingPadding?: number;
 }
 
 /**
@@ -337,12 +407,45 @@ export interface UncontrolledFlowProps {
   snapToGrid?: boolean;
   /** Grid size in pixels for snap-to-grid */
   gridSize?: number;
+  /** Show infinite grid background (default: true) */
+  showGrid?: boolean;
+  /** Enable spatial optimization for large graphs (>500 nodes) */
+  enableSpatialOptimization?: boolean;
+  /** Enable Space+drag and middle-mouse canvas panning (default: true) */
+  enablePan?: boolean;
+  /** P5: Enable edge visibility culling for large graphs */
+  edgeCulling?: boolean;
+  /** P5: Extra padding around viewport for edge culling (px) */
+  edgeCullingPadding?: number;
 }
 
 /**
  * Flow component props - supports both controlled and uncontrolled modes
  */
 export type FlowProps = ControlledFlowProps | UncontrolledFlowProps;
+
+/**
+ * A single item in a context menu.
+ * If `separator` is true, the item renders as a visual divider and all other fields are ignored.
+ */
+export interface ContextMenuItem {
+  /** Unique identifier for this item */
+  id: string;
+  /** Display label */
+  label: string;
+  /** Optional emoji / icon character shown to the left of the label */
+  icon?: string;
+  /** Keyboard shortcut hint text shown to the right */
+  shortcut?: string;
+  /** When true the item is rendered but not clickable */
+  disabled?: boolean;
+  /** When true renders a separator line instead of an item */
+  separator?: boolean;
+  /** Click handler – called before the menu closes */
+  onClick?: () => void;
+  /** Nested items rendered as a sub-menu on hover */
+  submenu?: ContextMenuItem[];
+}
 
 // Import Graph type for FlowProps (will be defined in Graph.ts)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

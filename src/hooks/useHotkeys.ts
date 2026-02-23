@@ -27,23 +27,39 @@ export function useHotkeys(graph: Graph, options: UseHotkeysOptions = {}) {
       const lowerKey = event.key.toLowerCase();
 
       if (event.key === "Delete" || event.key === "Backspace") {
-        const { selectedNodeIds, selectedNodeId } = graph.getState();
-        const selected = selectedNodeIds && selectedNodeIds.length > 0
+        const { selectedNodeIds, selectedNodeId, selectedEdgeIds, selectedEdgeId } = graph.getState();
+
+        // Collect selected nodes
+        const selectedNodes = selectedNodeIds && selectedNodeIds.length > 0
           ? selectedNodeIds
           : (selectedNodeId ? [selectedNodeId] : []);
 
-        if (selected.length === 0) return;
+        // Collect selected edges
+        const selectedEdges = selectedEdgeIds && selectedEdgeIds.length > 0
+          ? selectedEdgeIds
+          : (selectedEdgeId ? [selectedEdgeId] : []);
+
+        if (selectedNodes.length === 0 && selectedEdges.length === 0) return;
 
         event.preventDefault();
-        const selectedSet = new Set(selected);
+        const nodeSet = new Set(selectedNodes);
+        const edgeSet = new Set(selectedEdges);
+
         graph.setState((state) => ({
           ...state,
-          nodes: state.nodes.filter((node) => !selectedSet.has(node.id)),
+          // Remove selected nodes
+          nodes: state.nodes.filter((node) => !nodeSet.has(node.id)),
+          // Remove edges: those connected to deleted nodes OR explicitly selected
           edges: state.edges.filter(
-            (edge) => !selectedSet.has(edge.sourceNode) && !selectedSet.has(edge.targetNode)
+            (edge) =>
+              !nodeSet.has(edge.sourceNode) &&
+              !nodeSet.has(edge.targetNode) &&
+              !edgeSet.has(edge.id)
           ),
           selectedNodeId: null,
           selectedNodeIds: [],
+          selectedEdgeId: null,
+          selectedEdgeIds: [],
         }));
         return;
       }

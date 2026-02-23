@@ -32,6 +32,8 @@ export default defineConfig({
         preserveModules: false,
       }
     },
+    // Extract CSS into a separate file (dist/style.css)
+    cssCodeSplit: false,
     sourcemap: true,
     // Clear output dir before build
     emptyOutDir: true

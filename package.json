@@ -30,7 +30,8 @@
     "./types": {
       "import": "./dist/types.js",
       "types": "./dist/types/index.d.ts"
-    }
+    },
+    "./styles.css": "./dist/flowforge-react.css"
   },
   "files": [
     "dist"
@@ -46,9 +47,11 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
     "regl": "^2.1.1"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

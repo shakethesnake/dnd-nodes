@@ -1,5 +1,8 @@
 // FlowForge React - Main library entry point
 
+// Library runtime styles (auto-imported for consumers)
+import './styles/flowforge.css';
+
 // Components
 export {
   FlowCanvas,
@@ -24,7 +27,8 @@ export {
   useNode,
   useEdgesForNode,
   useSelection,
-  useConnectionPreview
+  useConnectionPreview,
+  useFlowIO
 } from './hooks';
 
 // Providers
@@ -87,8 +91,13 @@ export type {
   CanConnectFn,
   ConnectionEventPayloads,
   ConnectionEventHandlers,
-  FlowProps
+  FlowProps,
+  SerializedGraph,
+  ViewportState,
+  ValidationResult
 } from './types';
+
+export type { FlowIOActions } from './hooks';
 
 // export type { ConnectionType } from './providers';
 export type { EdgeProps, AnimatedEdgeProps, BreakableEdgeProps } from './components';

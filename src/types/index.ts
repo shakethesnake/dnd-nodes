@@ -29,5 +29,6 @@ export type {
   ValidationResult,
   FlowProps,
   ControlledFlowProps,
-  UncontrolledFlowProps
+  UncontrolledFlowProps,
+  ViewportState,
 } from './types';

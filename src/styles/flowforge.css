@@ -1,156 +1,62 @@
+/*
+ * FlowForge React — Library runtime styles
+ *
+ * These styles are required for correct rendering of the flow graph
+ * when the library is consumed via import.
+ *
+ * They are automatically imported when you do:
+ *   import { Flow } from 'flowforge-react';
+ *
+ * You can also import them manually:
+ *   import 'flowforge-react/styles.css';
+ */
+
+/* ===== CSS Custom Properties (with safe fallbacks) ===== */
 :root {
-    --bg: #0f1220;
-    --grid: #1b2038;
-    --grid-color: rgba(27, 32, 56, 0.5); /* Grid line color for dark theme */
-    --panel: #161a2e;
-    --node: #20253f;
-    --node-border: #2e355e;
-    --accent: #7aa2ff;
-    --accent-2: #36d399;
-    --text: #e8ecff;
-    --muted: #9aa3c7;
+    --ff-bg: var(--bg, #0f1220);
+    --ff-panel: var(--panel, #161a2e);
+    --ff-node: var(--node, #20253f);
+    --ff-node-border: var(--node-border, #2e355e);
+    --ff-accent: var(--accent, #7aa2ff);
+    --ff-accent-2: var(--accent-2, #36d399);
+    --ff-text: var(--text, #e8ecff);
+    --ff-muted: var(--muted, #9aa3c7);
+    --ff-grid-color: var(--grid-color, rgba(27, 32, 56, 0.5));
 }
 
-* {
-    box-sizing: border-box;
-}
-
-html,
-body {
-    height: 100%;
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-}
-
-.app {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    grid-template-rows: 48px 1fr;
-    grid-template-areas:
-        "toolbar toolbar"
-        "sidebar canvas";
-    height: 100vh;
-}
-
-.toolbar {
-    grid-area: toolbar;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--panel);
-    border-bottom: 1px solid #1f2340;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.toolbar button {
-    background: var(--node);
-    color: var(--text);
-    border: 1px solid var(--node-border);
-    padding: 6px 10px;
-    border-radius: 10px;
-    cursor: pointer;
-}
-
-.sidebar {
-    grid-area: sidebar;
-    background: var(--panel);
-    border-right: 1px solid #1f2340;
-    padding: 12px;
-    overflow: auto;
-}
-
-.sidebar h3 {
-    margin: 8px 0 12px;
-    color: var(--muted);
-    font-weight: 600;
-}
-
-.palette-item {
-    background: var(--node);
-    border: 1px dashed var(--node-border);
-    padding: 10px;
-    border-radius: 12px;
-    margin-bottom: 8px;
-    cursor: grab;
-}
-
-.canvas-wrap {
-    position: relative;
-    overflow: hidden;
-}
-
-/* Canvas background - Grid view */
-.canvas-view-grid {
-    background-image: linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-        linear-gradient(0deg, var(--grid) 1px, transparent 1px);
-    background-size: 24px 24px;
-}
-
-/* Canvas background - Dots view */
-.canvas-view-dots {
-    background-image: radial-gradient(circle, var(--grid) 1.5px, transparent 1.5px);
-    background-size: 24px 24px;
-    background-position: 0 0;
-}
-
-.canvas {
-    position: absolute;
-    inset: 0;
-    transform-origin: 0 0;
-}
-
-/* layers */
+/* ===== Edge Layer ===== */
 .edges-layer {
     width: 100%;
     height: 100%;
     position: absolute;
     inset: 0;
     pointer-events: none;
-    /* z-index: 1001; */
 }
 
-/* node */
+/* ===== Node ===== */
 .node {
     position: absolute;
     min-width: 140px;
     /* max-width: 220px; */
     background: #222;
-    border: 1px solid var(--node-border);
+    border: 1px solid var(--ff-node-border);
     border-radius: 14px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, .25);
-    color: var(--text);
+    color: var(--ff-text);
     user-select: none;
     transition: box-shadow .12s ease;
-    animation: bgChange 0.3s ease-in forwards;
-    animation-delay: 0.3s;
     will-change: transform;
     cursor: grab;
     z-index: 200;
 }
 
-.custom-node {
-    min-width: 180px;
-    max-width: 260px;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, .35), 0 0 20px rgba(102, 126, 234, 0.3);
-}
-
-.custom-node:hover {
-    box-shadow: 0 14px 28px rgba(0, 0, 0, .4), 0 0 30px rgba(102, 126, 234, 0.5);
-}
-
 .node.selected {
-    border-color: var(--accent);
+    border-color: var(--ff-accent);
     box-shadow: 0 10px 20px rgba(0, 0, 0, .25), 0 0 0 2px rgba(122, 162, 255, .5);
     z-index: 201;
 }
 
 .node:active {
-    border: 1px solid red;
     z-index: 999;
 }
 
@@ -178,9 +84,10 @@ body {
 
 .node-body {
     padding: 8px 10px 12px;
-    color: var(--muted);
+    color: var(--ff-muted);
 }
 
+/* ===== Ports ===== */
 .ports {
     display: flex;
     justify-content: space-between;
@@ -198,18 +105,18 @@ body {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid var(--node-border);
+    border: 2px solid var(--ff-node-border);
     background: #0e1330;
     cursor: crosshair;
 }
 
 .port.output {
-    background: var(--accent-2);
+    background: var(--ff-accent-2);
     border-color: #2a6b57;
 }
 
 .port.input {
-    background: var(--accent);
+    background: var(--ff-accent);
     border-color: #315cbe;
 }
 
@@ -217,6 +124,7 @@ body {
     transform: scale(1.1);
 }
 
+/* ===== Selection Rectangle ===== */
 .selection-rect {
     position: absolute;
     border: 1px dashed #7aa2ff77;
@@ -224,16 +132,16 @@ body {
     pointer-events: none;
 }
 
-/* edge */
+/* ===== Edge Styles ===== */
 svg.edges {
     width: 100%;
     height: 100%;
 }
 
 .edge-selected {
-    stroke: var(--accent, #7aa2ff);
+    stroke: var(--ff-accent, #7aa2ff);
     stroke-width: 3;
-    filter: drop-shadow(0 0 3px var(--accent, #7aa2ff));
+    filter: drop-shadow(0 0 3px var(--ff-accent, #7aa2ff));
 }
 
 .edge-path {
@@ -247,24 +155,6 @@ svg.edges {
     opacity: .9;
 }
 
-.minimap {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    width: 160px;
-    height: 110px;
-    border-radius: 10px;
-    background: #0a0d1f;
-    border: 1px solid #1f2340;
-    opacity: .85;
-}
-
-.flow-zoom {
-    transform-origin: 0 0;
-    transition: transform 0.1s ease-out;
-}
-
-/* Animated edge keyframes */
 @keyframes dash {
     to {
         stroke-dashoffset: -100;
@@ -275,7 +165,16 @@ svg.edges {
     animation: dash 2s linear infinite;
 }
 
-/* Experimental Node - with external side ports */
+@keyframes edgePulse {
+    0%, 100% { opacity: 0.4; stroke-width: 2; }
+    50% { opacity: 1; stroke-width: 4; }
+}
+
+.animated-edge-pulse {
+    animation: edgePulse 2s ease-in-out infinite;
+}
+
+/* ===== Experimental Node ===== */
 .experimental-node {
     position: relative;
     min-width: 160px;
@@ -298,7 +197,6 @@ svg.edges {
     box-shadow: 0 12px 32px rgba(0, 0, 0, .45), 0 0 0 2px rgba(122, 162, 255, .6);
 }
 
-/* Experimental node variants */
 .experimental-node-primary {
     background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
     border-color: #4f46e5;
@@ -319,7 +217,6 @@ svg.edges {
     border-color: #ef4444;
 }
 
-/* Node content area */
 .experimental-node-content {
     display: flex;
     align-items: center;
@@ -354,7 +251,6 @@ svg.edges {
     font-weight: 500;
 }
 
-/* External port containers */
 .experimental-port-container {
     position: absolute;
     top: 50%;
@@ -370,7 +266,6 @@ svg.edges {
     right: -8px;
 }
 
-/* External ports styling */
 .experimental-port {
     width: 16px;
     height: 16px;
@@ -404,52 +299,43 @@ svg.edges {
 .experimental-port.output:hover {
     box-shadow: 0 0 12px #36d399;
 }
-/* ===== Infinite Grid Background Styles ===== */
 
-/* Grid background container */
+/* ===== Grid Background ===== */
 .grid-background {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 0;
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
 }
 
-/* Grid lines variant - uses the theme grid color */
 .grid-background-lines {
-    background-color: var(--bg);
+    background-color: var(--ff-bg);
 }
 
-/* Dots variant - uses radial gradient */
 .grid-background-dots {
-    background-color: var(--bg);
+    background-color: var(--ff-bg);
 }
 
-/* Ensure canvas root has proper stacking context */
 [data-flow-root] {
-    background: var(--bg);
+    background: var(--ff-bg);
     position: relative;
 }
 
-/* Optional: Add subtle animation to grid on hover (can be removed if not desired) */
 [data-flow-root]:hover .grid-background {
     opacity: 1;
     transition: opacity 0.3s ease;
 }
 
-.grid-background {
-    opacity: 0.6;
-    transition: opacity 0.3s ease;
-}
-
-/* ===== Zoom Controls Styles ===== */
-
+/* ===== Zoom Controls ===== */
 .zoom-controls {
     position: absolute;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    background: var(--panel);
-    border: 1px solid var(--node-border);
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-node-border);
     border-radius: 8px;
     padding: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -461,9 +347,9 @@ svg.edges {
     text-align: center;
     font-size: 11px;
     font-weight: 600;
-    color: var(--muted);
+    color: var(--ff-muted);
     padding: 4px 8px;
-    border-bottom: 1px solid var(--node-border);
+    border-bottom: 1px solid var(--ff-node-border);
     margin-bottom: 4px;
     letter-spacing: 0.3px;
 }
@@ -474,9 +360,9 @@ svg.edges {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--node);
-    color: var(--text);
-    border: 1px solid var(--node-border);
+    background: var(--ff-node);
+    color: var(--ff-text);
+    border: 1px solid var(--ff-node-border);
     border-radius: 6px;
     cursor: pointer;
     font-size: 18px;
@@ -486,8 +372,8 @@ svg.edges {
 }
 
 .zoom-controls-button:hover {
-    background: var(--node-border);
-    border-color: var(--accent);
+    background: var(--ff-node-border);
+    border-color: var(--ff-accent);
     box-shadow: 0 0 8px rgba(122, 162, 255, 0.2);
     transform: translateY(-1px);
 }
@@ -498,19 +384,18 @@ svg.edges {
 }
 
 .zoom-controls-button:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--ff-accent);
     outline-offset: 2px;
 }
 
-/* ===== Context Menu Styles ===== */
-
+/* ===== Context Menu ===== */
 .context-menu {
     position: fixed;
     z-index: 9999;
     min-width: 180px;
     max-width: 260px;
-    background: var(--panel);
-    border: 1px solid var(--node-border);
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-node-border);
     border-radius: 6px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 1px 4px rgba(0, 0, 0, 0.3);
     padding: 4px 0;
@@ -530,7 +415,7 @@ svg.edges {
     align-items: center;
     gap: 8px;
     padding: 6px 12px;
-    color: var(--text);
+    color: var(--ff-text);
     cursor: pointer;
     border-radius: 4px;
     margin: 1px 4px;
@@ -539,11 +424,11 @@ svg.edges {
 
 .context-menu-item:hover,
 .context-menu-item-focused {
-    background: var(--node-border);
+    background: var(--ff-node-border);
 }
 
 .context-menu-item-disabled {
-    color: var(--muted);
+    color: var(--ff-muted);
     cursor: default;
     pointer-events: none;
     opacity: 0.5;
@@ -565,51 +450,46 @@ svg.edges {
 
 .context-menu-item-shortcut {
     font-size: 11px;
-    color: var(--muted);
+    color: var(--ff-muted);
     margin-left: auto;
     flex-shrink: 0;
 }
 
 .context-menu-item-arrow {
     font-size: 9px;
-    color: var(--muted);
+    color: var(--ff-muted);
     margin-left: 4px;
     flex-shrink: 0;
 }
 
 .context-menu-separator {
     height: 1px;
-    background: var(--node-border);
+    background: var(--ff-node-border);
     margin: 4px 8px;
 }
 
-/* Sub-menu panel */
 .context-submenu {
     position: absolute;
     left: 100%;
     top: -4px;
     min-width: 160px;
-    background: var(--panel);
-    border: 1px solid var(--node-border);
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-node-border);
     border-radius: 6px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
     padding: 4px 0;
     z-index: 10000;
 }
 
-/* ===== Pan Mode Cursor Styles ===== */
-
-/* Space held or middle mouse: show grab cursor on everything */
+/* ===== Pan Mode Cursor ===== */
 .canvas-pan-mode {
     cursor: grab !important;
 }
 
-/* Actively dragging: switch to grabbing */
 .canvas-pan-mode.panning {
     cursor: grabbing !important;
 }
 
-/* Override any cursor set by child elements (nodes, ports, etc.) */
 .canvas-pan-mode * {
     cursor: inherit !important;
 }

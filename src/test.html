@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node Editor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0e11;
+    --surface: #16181d;
+    --border: #2a2d35;
+    --border-active: #4a9eff;
+    --text: #c8cdd8;
+    --text-dim: #5a6070;
+    --accent: #4a9eff;
+    --accent2: #a855f7;
+    --node-bg: #1c1f27;
+    --port-size: 10px;
+    --port-active: #4a9eff;
+  }
+
+  body {
+    background: var(--bg);
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    user-select: none;
+  }
+
+  #toolbar {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+  }
+
+  #toolbar button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  #toolbar button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(74,158,255,0.07);
+  }
+
+  #canvas-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  #canvas-layer.connecting {
+    pointer-events: all;
+    cursor: crosshair;
+  }
+
+  #nodes-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+  }
+
+  .node {
+    position: absolute;
+    min-width: 180px;
+    background: var(--node-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: grab;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  .node:hover, .node.selected {
+    border-color: var(--border-active);
+    box-shadow: 0 4px 32px rgba(74,158,255,0.15);
+  }
+
+  .node.dragging {
+    cursor: grabbing;
+    border-color: var(--accent);
+    box-shadow: 0 8px 40px rgba(74,158,255,0.25);
+    z-index: 999;
+  }
+
+  .node-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .node-icon {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .node-title {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .node-body {
+    padding: 10px 14px;
+  }
+
+  .node-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .node-value {
+    font-size: 12px;
+    color: var(--text);
+    margin-top: 2px;
+  }
+
+  /* Ports */
+  .port {
+    position: absolute;
+    width: var(--port-size);
+    height: var(--port-size);
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--surface);
+    cursor: crosshair;
+    transition: background 0.15s, transform 0.15s;
+    z-index: 10;
+  }
+
+  .port:hover, .port.active {
+    background: var(--port-active);
+    transform: scale(1.4);
+  }
+
+  .port.output { right: calc(var(--port-size) / -2 - 1px); }
+  .port.input  { left:  calc(var(--port-size) / -2 - 1px); }
+
+  /* grid bg */
+  #bg-grid {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 20px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="bg-grid"></div>
+<canvas id="canvas-layer"></canvas>
+<div id="nodes-layer"></div>
+
+<div id="toolbar">
+  <button onclick="addNode('default')">+ Node</button>
+  <button onclick="addNode('input')">+ Input</button>
+  <button onclick="addNode('output')">+ Output</button>
+  <button onclick="clearEdges()">Clear Edges</button>
+  <div style="width:1px;background:var(--border);margin:0 4px"></div>
+  <input id="gen-count" type="number" value="50" min="1" max="2000"
+    style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);
+           padding:6px 8px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+           outline:none;text-align:center">
+  <button onclick="runBenchmark(+document.getElementById('gen-count').value)" style="border-color:#a855f7;color:#a855f7">⚡ Benchmark</button>
+  <button onclick="clearAll()" style="border-color:#ef4444;color:#ef4444">✕ Clear All</button>
+  <div style="width:1px;background:var(--border);margin:0 4px"></div>
+  <button onclick="fitView()" title="F">⊡ Fit</button>
+  <button onclick="resetView()" title="Ctrl+0">1:1</button>
+  <span id="zoom-indicator" style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:var(--text-dim);padding:0 6px;line-height:30px;min-width:38px;text-align:right">100%</span>
+</div>
+
+<div id="perf-overlay" style="display:none;position:fixed;top:64px;right:16px;z-index:1000;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);min-width:200px;line-height:1.8">
+</div>
+
+<div id="hint">DRAG nodes · PORT→PORT connect · WHEEL zoom · SPACE/MMB pan · F fit · Click edge select · Del delete · Dblclick delete</div>
+
+<script>
+const canvas = document.getElementById('canvas-layer');
+const ctx = canvas.getContext('2d');
+const nodesLayer = document.getElementById('nodes-layer');
+
+let nodes   = [];
+let edges   = [];
+let nodeMap = new Map(); // id → node, O(1) lookup
+let nodeIdCounter = 0;
+
+// Viewport
+const vp = { x: 0, y: 0, scale: 1 };
+const VP_MIN = 0.05, VP_MAX = 4;
+
+function applyViewport() {
+  nodesLayer.style.transform = `translate(${vp.x}px,${vp.y}px) scale(${vp.scale})`;
+  nodesLayer.style.transformOrigin = '0 0';
+  updateZoomIndicator();
+}
+
+function screenToWorld(sx, sy) {
+  return { x: (sx - vp.x) / vp.scale, y: (sy - vp.y) / vp.scale };
+}
+
+// worldToScreen — used for edge drawing without getBoundingClientRect
+function worldToScreen(wx, wy) {
+  return { x: wx * vp.scale + vp.x, y: wy * vp.scale + vp.y };
+}
+
+// Drag state
+let draggingNode = null;
+let dragOffsetX = 0, dragOffsetY = 0;
+
+// Pan state
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let panStartVpX = 0, panStartVpY = 0;
+
+// Connection state
+let connectingFrom = null; // { nodeId, portId, side, el }
+let mouseX = 0, mouseY = 0;
+let selectedEdgeId = null;
+
+// rAF dirty flag — ensures at most 1 redraw per frame
+let rafPending = false;
+function scheduleRedraw() {
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => { rafPending = false; redraw(); });
+}
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  redraw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── Node definitions ────────────────────────────────────────────────────────
+
+const NODE_TYPES = {
+  default: {
+    title: 'Process', color: '#4a9eff',
+    ports: { inputs: [{ id: 'in' }], outputs: [{ id: 'out' }] },
+    body: () => `<div class="node-label">Type</div><div class="node-value">transform</div>`
+  },
+  input: {
+    title: 'Input', color: '#a855f7',
+    ports: { inputs: [], outputs: [{ id: 'value' }] },
+    body: () => `<div class="node-label">Source</div><div class="node-value">data stream</div>`
+  },
+  output: {
+    title: 'Output', color: '#22c55e',
+    ports: { inputs: [{ id: 'result' }], outputs: [] },
+    body: () => `<div class="node-label">Sink</div><div class="node-value">result</div>`
+  }
+};
+
+function addNode(type = 'default') {
+  const id = ++nodeIdCounter;
+  const x = 120 + Math.random() * (window.innerWidth  - 400);
+  const y = 100 + Math.random() * (window.innerHeight - 300);
+  const node = { id, type, x, y, def: NODE_TYPES[type], el: null, w: 180, h: 80 };
+  nodes.push(node);
+  nodeMap.set(id, node);
+  renderNode(node);
+  scheduleRedraw();
+}
+
+function renderNode(node) {
+  const { def, id } = node;
+  const el = document.createElement('div');
+  el.className = 'node';
+  el.dataset.id = id;
+  el.style.left = node.x + 'px';
+  el.style.top  = node.y + 'px';
+
+  el.innerHTML = `
+    <div class="node-header">
+      <div class="node-icon" style="background:${def.color}"></div>
+      <span class="node-title">${def.title}_${id}</span>
+    </div>
+    <div class="node-body">${def.body()}</div>
+  `;
+
+  // ── Ports (HTML only for hit-testing & visual; position comes from world coords) ──
+  def.ports.inputs.forEach((port, i) => {
+    const fraction = def.ports.inputs.length === 1 ? 0.5 : (i + 1) / (def.ports.inputs.length + 1);
+    makePort(port, 'input', fraction, el, id);
+  });
+  def.ports.outputs.forEach((port, i) => {
+    const fraction = def.ports.outputs.length === 1 ? 0.5 : (i + 1) / (def.ports.outputs.length + 1);
+    makePort(port, 'output', fraction, el, id);
+  });
+
+  el.addEventListener('mousedown', e => startDrag(e, node, el));
+  node.el = el;
+  nodesLayer.appendChild(el);
+
+  // Cache real dimensions after paint (one-time read, not in hot loop)
+  requestAnimationFrame(() => {
+    node.w = el.offsetWidth  || 180;
+    node.h = el.offsetHeight || 80;
+    // Position port dots using cached size
+    el.querySelectorAll('.port').forEach(p => {
+      const frac = parseFloat(p.dataset.fraction);
+      p.style.top = (frac * node.h - 5) + 'px';
+    });
+    scheduleRedraw();
+  });
+}
+
+function makePort(port, side, fraction, nodeEl, nodeId) {
+  const el = document.createElement('div');
+  el.className = `port ${side}`;
+  el.dataset.portId   = port.id;
+  el.dataset.side     = side;
+  el.dataset.nodeId   = nodeId;
+  el.dataset.fraction = fraction;
+  el.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(e, nodeId, port.id, side, el); });
+  el.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(nodeId, port.id, side, el); });
+  nodeEl.appendChild(el);
+}
+
+// ─── Port world position (no DOM reads — pure math) ──────────────────────────
+
+function getPortWorldPos(nodeId, portId, side) {
+  const node = nodeMap.get(nodeId);
+  if (!node) return null;
+  const ports = side === 'output' ? node.def.ports.outputs : node.def.ports.inputs;
+  const idx   = ports.findIndex(p => p.id === portId);
+  if (idx === -1) return null;
+  const total    = ports.length;
+  const fraction = total === 1 ? 0.5 : (idx + 1) / (total + 1);
+  return {
+    wx: side === 'output' ? node.x + node.w : node.x,
+    wy: node.y + fraction * node.h
+  };
+}
+
+// Convert world port pos → screen (math only, no layout thrash)
+function getPortScreenPos(nodeId, portId, side) {
+  const wp = getPortWorldPos(nodeId, portId, side);
+  if (!wp) return null;
+  return worldToScreen(wp.wx, wp.wy);
+}
+
+// ─── Drag ────────────────────────────────────────────────────────────────────
+
+function startDrag(e, node, el) {
+  if (e.target.classList.contains('port')) return;
+  e.preventDefault();
+  draggingNode = node;
+  const w = screenToWorld(e.clientX, e.clientY);
+  dragOffsetX = w.x - node.x;
+  dragOffsetY = w.y - node.y;
+  el.classList.add('dragging');
+}
+
+window.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+
+  if (isPanning) {
+    vp.x = panStartVpX + (e.clientX - panStartX);
+    vp.y = panStartVpY + (e.clientY - panStartY);
+    applyViewport();
+  }
+
+  if (draggingNode) {
+    const w = screenToWorld(e.clientX, e.clientY);
+    draggingNode.x = w.x - dragOffsetX;
+    draggingNode.y = w.y - dragOffsetY;
+    draggingNode.el.style.left = draggingNode.x + 'px';
+    draggingNode.el.style.top  = draggingNode.y + 'px';
+  }
+
+  if (isPanning || draggingNode || connectingFrom) scheduleRedraw();
+});
+
+window.addEventListener('mouseup', e => {
+  if (draggingNode) { draggingNode.el.classList.remove('dragging'); draggingNode = null; }
+  if (isPanning)    { isPanning = false; document.body.style.cursor = ''; }
+  if (connectingFrom && !e.target.classList.contains('port')) {
+    connectingFrom = null;
+    scheduleRedraw();
+  }
+});
+
+// ─── Connect ─────────────────────────────────────────────────────────────────
+
+function startConnect(e, nodeId, portId, side, el) {
+  e.preventDefault();
+  connectingFrom = { nodeId, portId, side, el };
+  el.classList.add('active');
+  canvas.classList.add('connecting');
+}
+
+function endConnect(nodeId, portId, side, el) {
+  if (!connectingFrom) return;
+  const from = connectingFrom;
+  connectingFrom = null;
+  canvas.classList.remove('connecting');
+  from.el.classList.remove('active');
+
+  if (from.nodeId === nodeId || from.side === side) { scheduleRedraw(); return; }
+
+  const [outputNode, outputPort, inputNode, inputPort] =
+    from.side === 'output'
+      ? [from.nodeId, from.portId, nodeId, portId]
+      : [nodeId, portId, from.nodeId, from.portId];
+
+  const dup = edges.find(e =>
+    e.outputNode === outputNode && e.outputPort === outputPort &&
+    e.inputNode  === inputNode  && e.inputPort  === inputPort
+  );
+  if (!dup) edges.push({ id: ++nodeIdCounter, outputNode, outputPort, inputNode, inputPort });
+  scheduleRedraw();
+}
+
+// ─── Draw (hot path — zero DOM reads) ────────────────────────────────────────
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const s = vp.scale, tx = vp.x, ty = vp.y;
+  const cpMin = 60 * s;
+
+  // Draw normal edges first, selected edge last (on top)
+  let selEdge = null;
+
+  for (let i = 0; i < edges.length; i++) {
+    const edge = edges[i];
+    if (edge.id === selectedEdgeId) { selEdge = edge; continue; }
+
+    const fw = getPortWorldPos(edge.outputNode, edge.outputPort, 'output');
+    const tw = getPortWorldPos(edge.inputNode,  edge.inputPort,  'input');
+    if (!fw || !tw) continue;
+
+    const fx = fw.wx*s+tx, fy = fw.wy*s+ty;
+    const ex = tw.wx*s+tx, ey = tw.wy*s+ty;
+    const cp = Math.max(cpMin, Math.abs(ex-fx)*0.5);
+
+    ctx.strokeStyle = 'rgba(74,158,255,0.55)';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.bezierCurveTo(fx+cp, fy, ex-cp, ey, ex, ey);
+    ctx.stroke();
+
+    ctx.fillStyle = '#4a9eff';
+    ctx.beginPath(); ctx.arc(fx, fy, 3, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex, ey, 3, 0, 6.283); ctx.fill();
+  }
+
+  // Selected edge — drawn on top with glow effect
+  if (selEdge) {
+    const fw = getPortWorldPos(selEdge.outputNode, selEdge.outputPort, 'output');
+    const tw = getPortWorldPos(selEdge.inputNode,  selEdge.inputPort,  'input');
+    if (fw && tw) {
+      const fx = fw.wx*s+tx, fy = fw.wy*s+ty;
+      const ex = tw.wx*s+tx, ey = tw.wy*s+ty;
+      const cp = Math.max(cpMin, Math.abs(ex-fx)*0.5);
+
+      // Outer glow pass
+      ctx.shadowColor  = '#4a9eff';
+      ctx.shadowBlur   = 12;
+      ctx.strokeStyle  = 'rgba(74,158,255,0.35)';
+      ctx.lineWidth    = 8;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.bezierCurveTo(fx+cp, fy, ex-cp, ey, ex, ey);
+      ctx.stroke();
+
+      // Core line
+      ctx.shadowBlur   = 0;
+      ctx.strokeStyle  = '#ffffff';
+      ctx.lineWidth    = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.bezierCurveTo(fx+cp, fy, ex-cp, ey, ex, ey);
+      ctx.stroke();
+
+      ctx.shadowColor = 'transparent';
+
+      // Endpoint dots
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(fx, fy, 4, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex, ey, 4, 0, 6.283); ctx.fill();
+    }
+  }
+
+  // In-progress edge
+  if (connectingFrom) {
+    const fw = getPortWorldPos(connectingFrom.nodeId, connectingFrom.portId, connectingFrom.side);
+    if (fw) {
+      const fx = fw.wx*s+tx, fy = fw.wy*s+ty;
+      const cp = Math.max(cpMin, Math.abs(mouseX-fx)*0.5);
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.bezierCurveTo(
+        connectingFrom.side === 'output' ? fx+cp : fx-cp, fy,
+        connectingFrom.side === 'output' ? mouseX-cp : mouseX+cp, mouseY,
+        mouseX, mouseY
+      );
+      ctx.strokeStyle = 'rgba(74,158,255,0.45)';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+function clearEdges() { edges = []; selectedEdgeId = null; scheduleRedraw(); }
+
+// ─── Click canvas → select edge ──────────────────────────────────────────────
+/*
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const mx = e.clientX, my = e.clientY;
+  const s = vp.scale, tx = vp.x, ty = vp.y;
+  let hit = null;
+
+  for (let i = edges.length - 1; i >= 0; i--) {
+    const edge = edges[i];
+    const fw = getPortWorldPos(edge.outputNode, edge.outputPort, 'output');
+    const tw = getPortWorldPos(edge.inputNode,  edge.inputPort,  'input');
+    if (!fw || !tw) continue;
+    const fx = fw.wx*s+tx, fy = fw.wy*s+ty;
+    const ex = tw.wx*s+tx, ey = tw.wy*s+ty;
+    const cp = Math.max(60*s, Math.abs(ex-fx)*0.5);
+    for (let t = 0; t <= 1; t += 0.025) {
+      const u = 1-t;
+      const bx = u*u*u*fx + 3*u*u*t*(fx+cp) + 3*u*t*t*(ex-cp) + t*t*t*ex;
+      const by = u*u*u*fy + 3*u*u*t*fy       + 3*u*t*t*ey      + t*t*t*ey;
+      if ((bx-mx)*(bx-mx)+(by-my)*(by-my) < 64) { hit = edge.id; break; }
+    }
+    if (hit !== null) break;
+  }
+
+  if (selectedEdgeId !== hit) { selectedEdgeId = hit; scheduleRedraw(); }
+});
+*/
+// ─── Одинарный клик → выделение ребра (исправлено) ───────────────────────────
+window.addEventListener('mousedown', e => {
+  // Игнорируем клики не левой кнопкой, а также клики по нодам и тулбару
+  if (e.button !== 0 || e.target.closest('.node') || e.target.closest('#toolbar')) return;
+  
+  const mx = e.clientX, my = e.clientY;
+  const s = vp.scale, tx = vp.x, ty = vp.y;
+  let hit = null;
+
+  for (let i = edges.length - 1; i >= 0; i--) {
+    const edge = edges[i];
+    const fw = getPortWorldPos(edge.outputNode, edge.outputPort, 'output');
+    const tw = getPortWorldPos(edge.inputNode,  edge.inputPort,  'input');
+    if (!fw || !tw) continue;
+    const fx = fw.wx*s+tx, fy = fw.wy*s+ty;
+    const ex = tw.wx*s+tx, ey = tw.wy*s+ty;
+    const cp = Math.max(60*s, Math.abs(ex-fx)*0.5);
+    for (let t = 0; t <= 1; t += 0.025) {
+      const u = 1-t;
+      const bx = u*u*u*fx + 3*u*u*t*(fx+cp) + 3*u*t*t*(ex-cp) + t*t*t*ex;
+      const by = u*u*u*fy + 3*u*u*t*fy       + 3*u*t*t*ey      + t*t*t*ey;
+      if ((bx-mx)*(bx-mx)+(by-my)*(by-my) < 64) { hit = edge.id; break; }
+    }
+    if (hit !== null) break;
+  }
+
+  // Сбрасываем выделение, если кликнули в пустоту, или выделяем новое ребро
+  if (selectedEdgeId !== hit) { selectedEdgeId = hit; scheduleRedraw(); }
+});
+
+// ─── Double-click canvas → delete edge ───────────────────────────────────────
+
+canvas.addEventListener('dblclick', e => {
+  const mx = e.clientX, my = e.clientY;
+  let deleted = false;
+  edges = edges.filter(edge => {
+    if (deleted) return true;
+    const fw = getPortWorldPos(edge.outputNode, edge.outputPort, 'output');
+    const tw = getPortWorldPos(edge.inputNode,  edge.inputPort,  'input');
+    if (!fw || !tw) return true;
+    const s = vp.scale, tx = vp.x, ty = vp.y;
+    const fx = fw.wx*s+tx, fy = fw.wy*s+ty;
+    const ex = tw.wx*s+tx, ey = tw.wy*s+ty;
+    const cp = Math.max(60*s, Math.abs(ex-fx)*0.5);
+    for (let t = 0; t <= 1; t += 0.025) {
+      const u = 1-t;
+      const bx = u*u*u*fx + 3*u*u*t*(fx+cp) + 3*u*t*t*(ex-cp) + t*t*t*ex;
+      const by = u*u*u*fy + 3*u*u*t*fy       + 3*u*t*t*ey      + t*t*t*ey;
+      if ((bx-mx)*(bx-mx)+(by-my)*(by-my) < 64) { deleted = true; return false; }
+    }
+    return true;
+  });
+  if (deleted) selectedEdgeId = null;
+  scheduleRedraw();
+});
+
+// ─── Viewport controls ───────────────────────────────────────────────────────
+
+// Wheel → zoom centered on cursor
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const newScale = Math.min(VP_MAX, Math.max(VP_MIN, vp.scale * factor));
+  vp.x = e.clientX - (e.clientX - vp.x) * (newScale / vp.scale);
+  vp.y = e.clientY - (e.clientY - vp.y) * (newScale / vp.scale);
+  vp.scale = newScale;
+  applyViewport();
+  redraw();
+}, { passive: false });
+
+// Middle mouse / Space+drag → pan
+window.addEventListener('mousedown', e => {
+  const isMiddle = e.button === 1;
+  const isSpacePan = spaceDown && e.button === 0 && !e.target.classList.contains('port');
+  if (isMiddle || isSpacePan) {
+    e.preventDefault();
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panStartVpX = vp.x;    panStartVpY = vp.y;
+    document.body.style.cursor = 'grab';
+  }
+});
+
+let spaceDown = false;
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.target.matches('input')) {
+    e.preventDefault();
+    spaceDown = true;
+    document.body.style.cursor = 'grab';
+  }
+  if (e.code === 'KeyF') fitView();
+  if (e.code === 'Digit0' && e.ctrlKey) { e.preventDefault(); resetView(); }
+  if ((e.code === 'Delete' || e.code === 'Backspace') && selectedEdgeId !== null) {
+    edges = edges.filter(ed => ed.id !== selectedEdgeId);
+    selectedEdgeId = null;
+    scheduleRedraw();
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceDown = false;
+    if (!isPanning) document.body.style.cursor = '';
+  }
+});
+
+function fitView() {
+  if (!nodes.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    const w = n.el ? n.el.offsetWidth  : 200;
+    const h = n.el ? n.el.offsetHeight : 100;
+    minX = Math.min(minX, n.x);     minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + w); maxY = Math.max(maxY, n.y + h);
+  });
+  const pad = 60;
+  const scaleX = (window.innerWidth  - pad * 2) / (maxX - minX || 1);
+  const scaleY = (window.innerHeight - pad * 2) / (maxY - minY || 1);
+  vp.scale = Math.min(VP_MAX, Math.max(VP_MIN, Math.min(scaleX, scaleY)));
+  vp.x = pad - minX * vp.scale + (window.innerWidth  - pad*2 - (maxX-minX)*vp.scale) / 2;
+  vp.y = pad - minY * vp.scale + (window.innerHeight - pad*2 - (maxY-minY)*vp.scale) / 2;
+  applyViewport(); redraw();
+}
+
+function resetView() {
+  vp.x = 0; vp.y = 0; vp.scale = 1;
+  applyViewport(); redraw();
+}
+
+function updateZoomIndicator() {
+  const el = document.getElementById('zoom-indicator');
+  if (el) el.textContent = Math.round(vp.scale * 100) + '%';
+}
+
+// ─── Generate Graph ──────────────────────────────────────────────────────────
+
+function generateGraph(count) {
+  clearAll(false);
+
+  const types = ['default', 'default', 'default', 'input', 'output'];
+  const cols  = Math.ceil(Math.sqrt(count * 1.6));
+  const cellW = Math.max(220, (window.innerWidth  - 80) / cols);
+  const cellH = Math.max(160, (window.innerHeight - 120) / Math.ceil(count / cols));
+
+  for (let i = 0; i < count; i++) {
+    const col  = i % cols, row = Math.floor(i / cols);
+    const type = types[i % types.length];
+    const id   = ++nodeIdCounter;
+    const x    = 40 + col * cellW + (Math.random() - 0.5) * cellW * 0.3;
+    const y    = 60 + row * cellH + (Math.random() - 0.5) * cellH * 0.3;
+    const node = { id, type, x, y, def: NODE_TYPES[type], el: null, w: 180, h: 80 };
+    nodes.push(node);
+    nodeMap.set(id, node);
+    renderNode(node);
+    node.el.style.left = node.x + 'px';
+    node.el.style.top  = node.y + 'px';
+  }
+
+  // Cache real sizes + build edges after one paint
+  requestAnimationFrame(() => {
+    // Cache dimensions for all nodes at once (batch read — single reflow)
+    nodes.forEach(n => {
+      if (n.el) {
+        n.w = n.el.offsetWidth  || 180;
+        n.h = n.el.offsetHeight || 80;
+        n.el.querySelectorAll('.port').forEach(p => {
+          p.style.top = (parseFloat(p.dataset.fraction) * n.h - 5) + 'px';
+        });
+      }
+    });
+
+    const nodesWithOut = nodes.filter(n => n.def.ports.outputs.length > 0);
+    const nodesWithIn  = nodes.filter(n => n.def.ports.inputs.length  > 0);
+    const edgeTarget   = Math.round(count * 1.2);
+
+    for (let e = 0; e < edgeTarget; e++) {
+      for (let a = 0; a < 8; a++) {
+        const src = nodesWithOut[Math.floor(Math.random() * nodesWithOut.length)];
+        const tgt = nodesWithIn [Math.floor(Math.random() * nodesWithIn.length)];
+        if (!src || !tgt || src.id === tgt.id) continue;
+        const outPort = src.def.ports.outputs[0];
+        const inPort  = tgt.def.ports.inputs[0];
+        const dup = edges.find(ed =>
+          ed.outputNode === src.id && ed.outputPort === outPort.id &&
+          ed.inputNode  === tgt.id && ed.inputPort  === inPort.id
+        );
+        if (!dup) {
+          edges.push({ id: ++nodeIdCounter, outputNode: src.id, outputPort: outPort.id, inputNode: tgt.id, inputPort: inPort.id });
+          break;
+        }
+      }
+    }
+
+    redraw();
+    setTimeout(fitView, 50);
+  });
+}
+
+// ─── Benchmark ───────────────────────────────────────────────────────────────
+
+function clearAll(redrawAfter = true) {
+  nodes.forEach(n => n.el && n.el.remove());
+  nodes = []; edges = []; nodeMap.clear();
+  nodeIdCounter = 0;
+  vp.x = 0; vp.y = 0; vp.scale = 1;
+  applyViewport();
+  if (redrawAfter) redraw();
+}
+
+let benchmarkRaf = null;
+let fpsHistory = [];
+let fpsLastTime = null;
+let benchmarkActive = false;
+
+function runBenchmark(count) {
+  stopBenchmark();
+
+  const overlay = document.getElementById('perf-overlay');
+  overlay.style.display = 'block';
+  overlay.innerHTML = `<div style="color:#a855f7;margin-bottom:8px">⚡ BENCHMARK</div>
+    <div>Nodes: <span style="color:#4a9eff">${count}</span></div>
+    <div>Generating...</div>`;
+
+  const t0 = performance.now();
+  generateGraph(count);
+  const genTime = (performance.now() - t0).toFixed(1);
+
+  fpsHistory = [];
+  fpsLastTime = null;
+  benchmarkActive = true;
+
+  // Wait for generateGraph's rAF then start measuring
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    overlay.innerHTML = `
+      <div style="color:#a855f7;margin-bottom:8px">⚡ BENCHMARK</div>
+      <div>Nodes: <span style="color:#4a9eff">${count}</span></div>
+      <div>Edges: <span style="color:#4a9eff">${edges.length}</span></div>
+      <div>Gen time: <span style="color:#22c55e">${genTime} ms</span></div>
+      <div>FPS: <span id="fps-val">—</span></div>
+      <div>Avg FPS: <span id="fps-avg">—</span></div>
+      <div>Draw ms: <span id="draw-ms">—</span></div>
+      <div style="margin-top:8px;color:var(--text-dim);font-size:10px">DRAG a node to stress test</div>
+      <div style="margin-top:8px">
+        <span onclick="stopBenchmark()" style="cursor:pointer;color:#ef4444">■ Stop</span>
+      </div>`;
+
+    measureFps();
+  }));
+}
+
+function measureFps() {
+  if (!benchmarkActive) return;
+
+  let lastTs = performance.now();
+  let frames = 0;
+
+  function tick(ts) {
+    if (!benchmarkActive) return;
+
+    const delta = ts - lastTs;
+    lastTs = ts;
+    const fps = 1000 / delta;
+    fpsHistory.push(fps);
+    if (fpsHistory.length > 120) fpsHistory.shift();
+
+    frames++;
+    if (frames % 10 === 0) {
+      const avg = (fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length).toFixed(1);
+      const cur = fps.toFixed(1);
+      const fpsColor = fps > 50 ? '#22c55e' : fps > 30 ? '#f59e0b' : '#ef4444';
+
+      const fv = document.getElementById('fps-val');
+      const fa = document.getElementById('fps-avg');
+      if (fv) fv.innerHTML = `<span style="color:${fpsColor}">${cur}</span>`;
+      if (fa) fa.innerHTML = `<span style="color:${fpsColor}">${avg}</span>`;
+    }
+
+    // Measure redraw time
+    if (frames % 30 === 0) {
+      const t0 = performance.now();
+      redraw();
+      const dt = (performance.now() - t0).toFixed(2);
+      const dm = document.getElementById('draw-ms');
+      const drawColor = dt < 2 ? '#22c55e' : dt < 8 ? '#f59e0b' : '#ef4444';
+      if (dm) dm.innerHTML = `<span style="color:${drawColor}">${dt} ms</span>`;
+    }
+
+    benchmarkRaf = requestAnimationFrame(tick);
+  }
+
+  benchmarkRaf = requestAnimationFrame(tick);
+}
+
+function stopBenchmark() {
+  benchmarkActive = false;
+  if (benchmarkRaf) cancelAnimationFrame(benchmarkRaf);
+  const overlay = document.getElementById('perf-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+
+addNode('input');
+addNode('default');
+addNode('output');
+
+setTimeout(() => {
+  nodes[0].x = 60;  nodes[0].y = 200;
+  nodes[1].x = 320; nodes[1].y = 160;
+  nodes[2].x = 580; nodes[2].y = 200;
+  nodes.forEach(n => {
+    n.el.style.left = n.x + 'px';
+    n.el.style.top  = n.y + 'px';
+  });
+  redraw();
+}, 50);
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
-import React, { useRef, useCallback, useEffect } from "react";
+import React, { useRef, useCallback, useEffect, useContext } from "react";
 import { useGraph } from "../hooks/useGraph";
+import { ZoomContext } from "../providers/ZoomProvider";
 import type { NodeData } from "../types/types";
 import { Port } from "./Port";
 
@@ -13,14 +14,19 @@ import { Port } from "./Port";
  */
 export const ExperimentalNode: React.FC<NodeData> = ({ id, position, label, data }) => {
     const graph = useGraph();
+    const { isPanModeRef } = useContext(ZoomContext);
     const nodeRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = React.useState(false);
 
     const { selectedNodeId, selectedNodeIds } = graph.getState();
     const isSelected = selectedNodeIds?.includes(id) || selectedNodeId === id;
+    const isPrimarySelected = selectedNodeId === id;
 
-    /** === DRAG LOGIC === */
+    /** === DRAG LOGIC (with click vs drag threshold) === */
+    const DRAG_THRESHOLD = 3;
+
     const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        if (isPanModeRef.current) return;
         e.stopPropagation();
         const nodeEl = nodeRef.current;
         if (!nodeEl) return;
@@ -29,36 +35,59 @@ export const ExperimentalNode: React.FC<NodeData> = ({ id, position, label, data
         const nodeData = graph.getState().nodes.find((n) => n.id === id);
         if (!nodeData) return;
         const startPos = nodeData.position;
+        const shiftKey = e.shiftKey;
 
-        // Bring node to front while dragging
-        setIsDragging(true);
-
-        graph.setState((s) => {
-            const prevSelected = s.selectedNodeIds && s.selectedNodeIds.length > 0
-                ? s.selectedNodeIds
-                : (s.selectedNodeId ? [s.selectedNodeId] : []);
-
-            const nextSelected = e.shiftKey
-                ? Array.from(new Set([...prevSelected, id]))
-                : [id];
-
-            return {
-                ...s,
-                draggingId: id,
-                selectedNodeId: id,
-                selectedNodeIds: nextSelected,
-            };
-        });
+        let dragStarted = false;
 
         const handleMove = (ev: PointerEvent) => {
             const curCanvas = graph.toCanvasSpace({ x: ev.clientX, y: ev.clientY });
             const dx = curCanvas.x - startCanvas.x;
             const dy = curCanvas.y - startCanvas.y;
+
+            if (!dragStarted) {
+                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+                dragStarted = true;
+                setIsDragging(true);
+                graph.setState((s) => ({
+                    ...s,
+                    draggingId: id,
+                }));
+            }
+
             nodeEl.style.transform = `translate(${dx}px, ${dy}px)`;
             graph.updateEdgesForNode(id);
         };
 
         const handleUp = (ev: PointerEvent) => {
+            window.removeEventListener("pointermove", handleMove);
+            window.removeEventListener("pointerup", handleUp);
+
+            if (!dragStarted) {
+                graph.setState((s) => {
+                    const prevSelected = s.selectedNodeIds && s.selectedNodeIds.length > 0
+                        ? s.selectedNodeIds
+                        : (s.selectedNodeId ? [s.selectedNodeId] : []);
+
+                    if (shiftKey) {
+                        const alreadySelected = prevSelected.includes(id);
+                        const nextSelected = alreadySelected
+                            ? prevSelected.filter((sid) => sid !== id)
+                            : [...prevSelected, id];
+                        return {
+                            ...s,
+                            selectedNodeIds: nextSelected,
+                            selectedNodeId: nextSelected[nextSelected.length - 1] ?? null,
+                        };
+                    }
+                    return {
+                        ...s,
+                        selectedNodeId: id,
+                        selectedNodeIds: [id],
+                    };
+                });
+                return;
+            }
+
             const curCanvas = graph.toCanvasSpace({ x: ev.clientX, y: ev.clientY });
             const dx = curCanvas.x - startCanvas.x;
             const dy = curCanvas.y - startCanvas.y;
@@ -75,22 +104,36 @@ export const ExperimentalNode: React.FC<NodeData> = ({ id, position, label, data
                         : n
                 ),
                 draggingId: null,
-                // Keep selectedNodeId so the node and its edges stay on top after drop
             }));
 
             nodeEl.style.top = `${nextPosition.y}px`;
             nodeEl.style.left = `${nextPosition.x}px`;
             nodeEl.style.transform = '';
-            // Reset dragging state
             setIsDragging(false);
-
-            window.removeEventListener("pointermove", handleMove);
-            window.removeEventListener("pointerup", handleUp);
         };
+
+        // Immediately select on pointerdown + clear edge selection
+        graph.setState((s) => {
+            const prevSelected = s.selectedNodeIds && s.selectedNodeIds.length > 0
+                ? s.selectedNodeIds
+                : (s.selectedNodeId ? [s.selectedNodeId] : []);
+
+            const nextSelected = shiftKey
+                ? Array.from(new Set([...prevSelected, id]))
+                : [id];
+
+            return {
+                ...s,
+                selectedNodeId: id,
+                selectedNodeIds: nextSelected,
+                selectedEdgeId: null,
+                selectedEdgeIds: [],
+            };
+        });
 
         window.addEventListener("pointermove", handleMove);
         window.addEventListener("pointerup", handleUp);
-    }, [graph, id, setIsDragging]);
+    }, [graph, id, setIsDragging, isPanModeRef]);
 
     /** === REGISTER NODE === */
     const registerRef = useCallback((el: HTMLDivElement | null) => {
@@ -120,6 +163,8 @@ export const ExperimentalNode: React.FC<NodeData> = ({ id, position, label, data
                 left: `${position.x}px`,
                 top: `${position.y}px`,
                 userSelect: "none",
+                zIndex: isDragging ? 999 : isPrimarySelected ? 202 : isSelected ? 201 : 200,
+                cursor: isDragging ? "grabbing" : "grab",
                 willChange: "transform",
             }}
             onPointerDown={handlePointerDown}

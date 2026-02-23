@@ -15,6 +15,8 @@ export function serializeGraph(
     version: CURRENT_VERSION,
     nodes: state.nodes.map(cleanNode),
     edges: state.edges.map(cleanEdge),
+    ...(state.viewport && { viewport: { ...state.viewport } }),
+    ...(state.canvasView && { canvasView: state.canvasView }),
     metadata: {
       createdAt: new Date().toISOString(),
       ...metadata,
@@ -35,7 +37,8 @@ export function deserializeGraph(serialized: SerializedGraph): GraphState {
     draggingId: null,
     selectedNodeId: null,
     selectedNodeIds: [],
-    canvasView: 'grid',
+    canvasView: migrated.canvasView ?? 'grid',
+    ...(migrated.viewport && { viewport: { ...migrated.viewport } }),
   };
 }
 
