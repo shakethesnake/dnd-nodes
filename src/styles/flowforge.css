@@ -22,6 +22,46 @@
     --ff-text: var(--text, #e8ecff);
     --ff-muted: var(--muted, #9aa3c7);
     --ff-grid-color: var(--grid-color, rgba(27, 32, 56, 0.5));
+    --ff-node-surface: var(--ff-node);
+    --ff-node-title: var(--ff-text);
+    --ff-node-header-border: var(--ff-node-border);
+    --ff-node-header-overlay: color-mix(in srgb, var(--ff-node-border) 28%, transparent);
+    --ff-node-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+    --ff-node-shadow-dragging: 0 18px 36px rgba(0, 0, 0, 0.35);
+    --ff-node-selected-ring: color-mix(in srgb, var(--ff-accent) 45%, transparent);
+    --ff-port-bg: var(--ff-bg);
+    --ff-port-input-border: color-mix(in srgb, var(--ff-accent) 72%, black);
+    --ff-port-output-border: color-mix(in srgb, var(--ff-accent-2) 72%, black);
+    --ff-selection-border: color-mix(in srgb, var(--ff-accent) 55%, transparent);
+    --ff-selection-fill: color-mix(in srgb, var(--ff-accent) 22%, transparent);
+    --ff-edge-default: color-mix(in srgb, var(--ff-accent) 72%, white);
+    --ff-exp-node-bg-start: color-mix(in srgb, #2d1b3d 40%, var(--ff-node) 60%);
+    --ff-exp-node-bg-end: color-mix(in srgb, #1a1f3a 45%, var(--ff-node) 55%);
+    --ff-exp-node-border: color-mix(in srgb, var(--ff-node-border) 78%, #3d4466);
+    --ff-exp-node-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --ff-exp-node-shadow-dragging: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 0 2px color-mix(in srgb, var(--ff-accent) 40%, transparent);
+    --ff-exp-node-shadow-selected: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 2px color-mix(in srgb, var(--ff-accent) 60%, transparent);
+    --ff-exp-node-title: var(--ff-text);
+    --ff-exp-node-subtitle: var(--ff-muted);
+    --ff-exp-port-bg: var(--ff-bg);
+    --ff-exp-port-input-border: var(--ff-accent);
+    --ff-exp-port-input-bg: color-mix(in srgb, var(--ff-accent) 40%, var(--ff-bg));
+    --ff-exp-port-output-border: var(--ff-accent-2);
+    --ff-exp-port-output-bg: color-mix(in srgb, var(--ff-accent-2) 40%, var(--ff-bg));
+    --ff-custom-node-border: color-mix(in srgb, var(--ff-node-border) 55%, white);
+    --ff-custom-node-header-overlay: color-mix(in srgb, black 26%, transparent);
+    --ff-custom-node-title: var(--ff-text);
+    --ff-custom-node-body: color-mix(in srgb, var(--ff-text) 88%, transparent);
+    --ff-custom-port-input-bg: color-mix(in srgb, var(--ff-accent) 45%, var(--ff-bg));
+    --ff-custom-port-input-border: var(--ff-port-input-border);
+    --ff-custom-node-purple-start: #667eea;
+    --ff-custom-node-purple-end: #764ba2;
+    --ff-custom-node-blue-start: #1e3a8a;
+    --ff-custom-node-blue-end: #3b82f6;
+    --ff-custom-node-green-start: #065f46;
+    --ff-custom-node-green-end: #10b981;
+    --ff-custom-node-red-start: #dc2626;
+    --ff-custom-node-red-end: #f97316;
 }
 
 /* ===== Edge Layer ===== */
@@ -38,10 +78,10 @@
     position: absolute;
     min-width: 140px;
     /* max-width: 220px; */
-    background: #222;
+    background: var(--ff-node-surface);
     border: 1px solid var(--ff-node-border);
     border-radius: 14px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, .25);
+    box-shadow: var(--ff-node-shadow);
     color: var(--ff-text);
     user-select: none;
     transition: box-shadow .12s ease;
@@ -52,7 +92,7 @@
 
 .node.selected {
     border-color: var(--ff-accent);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, .25), 0 0 0 2px rgba(122, 162, 255, .5);
+    box-shadow: var(--ff-node-shadow), 0 0 0 2px var(--ff-node-selected-ring);
     z-index: 201;
 }
 
@@ -61,7 +101,7 @@
 }
 
 .node.dragging {
-    box-shadow: 0 18px 36px rgba(0, 0, 0, .35);
+    box-shadow: var(--ff-node-shadow-dragging);
     cursor: grabbing;
 }
 
@@ -71,15 +111,15 @@
     justify-content: space-between;
     gap: 8px;
     padding: 8px 10px;
-    border-bottom: 1px solid #242a4a;
+    border-bottom: 1px solid var(--ff-node-header-border);
     border-radius: 14px 14px 0 0;
-    background: linear-gradient(180deg, #1a1f39, transparent);
+    background: linear-gradient(180deg, var(--ff-node-header-overlay), transparent);
 }
 
 .node-title {
     font-size: 12px;
     letter-spacing: .2px;
-    color: #cdd5ff;
+    color: var(--ff-node-title);
 }
 
 .node-body {
@@ -106,18 +146,18 @@
     height: 12px;
     border-radius: 50%;
     border: 2px solid var(--ff-node-border);
-    background: #0e1330;
+    background: var(--ff-port-bg);
     cursor: crosshair;
 }
 
 .port.output {
     background: var(--ff-accent-2);
-    border-color: #2a6b57;
+    border-color: var(--ff-port-output-border);
 }
 
 .port.input {
     background: var(--ff-accent);
-    border-color: #315cbe;
+    border-color: var(--ff-port-input-border);
 }
 
 .port:hover {
@@ -127,8 +167,8 @@
 /* ===== Selection Rectangle ===== */
 .selection-rect {
     position: absolute;
-    border: 1px dashed #7aa2ff77;
-    background: #7aa2ff22;
+    border: 1px dashed var(--ff-selection-border);
+    background: var(--ff-selection-fill);
     pointer-events: none;
 }
 
@@ -145,7 +185,7 @@ svg.edges {
 }
 
 .edge-path {
-    stroke: #9fb5ff;
+    stroke: var(--ff-edge-default);
     stroke-width: 2;
     fill: none;
 }
@@ -179,42 +219,58 @@ svg.edges {
     position: relative;
     min-width: 160px;
     max-width: 240px;
-    background: linear-gradient(135deg, #1a1f3a 0%, #2d1b3d 100%);
-    border: 2px solid #3d4466;
+    background: linear-gradient(135deg, var(--ff-exp-node-bg-start) 0%, var(--ff-exp-node-bg-end) 100%);
+    border: 2px solid var(--ff-exp-node-border);
     border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .4), 0 0 0 1px rgba(255, 255, 255, .05);
+    box-shadow: var(--ff-exp-node-shadow);
     cursor: grab;
     z-index: 200;
 }
 
 .experimental-node.dragging {
-    box-shadow: 0 16px 40px rgba(0, 0, 0, .5), 0 0 0 2px rgba(122, 162, 255, .4);
+    box-shadow: var(--ff-exp-node-shadow-dragging);
     cursor: grabbing;
 }
 
 .experimental-node.selected {
-    border-color: #7aa2ff;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, .45), 0 0 0 2px rgba(122, 162, 255, .6);
+    border-color: var(--ff-accent);
+    box-shadow: var(--ff-exp-node-shadow-selected);
 }
 
 .experimental-node-primary {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
-    border-color: #4f46e5;
+    background: linear-gradient(
+      135deg,
+      var(--ff-exp-node-primary-start, #1e3a8a) 0%,
+      var(--ff-exp-node-primary-end, #3730a3) 100%
+    );
+    border-color: var(--ff-exp-node-primary-border, #4f46e5);
 }
 
 .experimental-node-success {
-    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
-    border-color: #10b981;
+    background: linear-gradient(
+      135deg,
+      var(--ff-exp-node-success-start, #065f46) 0%,
+      var(--ff-exp-node-success-end, #047857) 100%
+    );
+    border-color: var(--ff-exp-node-success-border, #10b981);
 }
 
 .experimental-node-warning {
-    background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
-    border-color: #f59e0b;
+    background: linear-gradient(
+      135deg,
+      var(--ff-exp-node-warning-start, #92400e) 0%,
+      var(--ff-exp-node-warning-end, #b45309) 100%
+    );
+    border-color: var(--ff-exp-node-warning-border, #f59e0b);
 }
 
 .experimental-node-danger {
-    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
-    border-color: #ef4444;
+    background: linear-gradient(
+      135deg,
+      var(--ff-exp-node-danger-start, #7f1d1d) 0%,
+      var(--ff-exp-node-danger-end, #991b1b) 100%
+    );
+    border-color: var(--ff-exp-node-danger-border, #ef4444);
 }
 
 .experimental-node-content {
@@ -238,14 +294,14 @@ svg.edges {
 .experimental-node-title {
     font-size: 13px;
     font-weight: 600;
-    color: #e8ecff;
+    color: var(--ff-exp-node-title);
     letter-spacing: 0.3px;
     margin-bottom: 2px;
 }
 
 .experimental-node-subtitle {
     font-size: 10px;
-    color: #9aa3c7;
+    color: var(--ff-exp-node-subtitle);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 500;
@@ -271,20 +327,20 @@ svg.edges {
     height: 16px;
     border-radius: 50%;
     border: 3px solid;
-    background: #0f1220;
+    background: var(--ff-exp-port-bg);
     cursor: crosshair;
     transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
 }
 
 .experimental-port.input {
-    border-color: #7aa2ff;
-    background: #1e3a8a;
+    border-color: var(--ff-exp-port-input-border);
+    background: var(--ff-exp-port-input-bg);
 }
 
 .experimental-port.output {
-    border-color: #36d399;
-    background: #065f46;
+    border-color: var(--ff-exp-port-output-border);
+    background: var(--ff-exp-port-output-bg);
 }
 
 .experimental-port:hover {
@@ -293,11 +349,11 @@ svg.edges {
 }
 
 .experimental-port.input:hover {
-    box-shadow: 0 0 12px #7aa2ff;
+    box-shadow: 0 0 12px var(--ff-exp-port-input-border);
 }
 
 .experimental-port.output:hover {
-    box-shadow: 0 0 12px #36d399;
+    box-shadow: 0 0 12px var(--ff-exp-port-output-border);
 }
 
 /* ===== Grid Background ===== */

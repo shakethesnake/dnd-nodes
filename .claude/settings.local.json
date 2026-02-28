@@ -15,7 +15,8 @@
       "Bash(npm run dev:*)",
       "Bash(timeout 3 tail:*)",
       "Bash(\"d:\\\\Git\\\\flowforge-react\\\\src\\\\App.css\":*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(npx vite build:*)"
     ],
     "deny": [],
     "ask": []
